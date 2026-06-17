@@ -149,7 +149,7 @@ function App() {
   const [blob, setBlob] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(0);
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [videoResolution, setVideoResolution] = useState("");
   const [uploadResult, setUploadResult] = useState(null);
   const [error, setError] = useState("");
 
@@ -168,7 +168,6 @@ function App() {
     return () => {
       stopStream();
       if (videoUrl) URL.revokeObjectURL(videoUrl);
-      if (thumbnailUrl) URL.revokeObjectURL(thumbnailUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -241,20 +240,12 @@ function App() {
     recorderRef.current = null;
   }
 
-  function generateThumbnail() {
+  function updatePlaybackMetadata() {
     const video = playbackRef.current;
     if (!video) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((imageBlob) => {
-      if (!imageBlob) return;
-      if (thumbnailUrl) URL.revokeObjectURL(thumbnailUrl);
-      setThumbnailUrl(URL.createObjectURL(imageBlob));
-    }, "image/jpeg", 0.82);
+    if (video.videoWidth && video.videoHeight) {
+      setVideoResolution(`${video.videoWidth} x ${video.videoHeight}`);
+    }
   }
 
   async function uploadAndRedirect() {
@@ -363,6 +354,7 @@ function App() {
               <div>
                 <span>Formato</span>
                 <b>{blob.type || "video/webm"}</b>
+                {videoResolution && <small>{videoResolution}</small>}
               </div>
             </div>
 
@@ -379,9 +371,8 @@ function App() {
               controls
               playsInline
               className="playback"
-              onLoadedData={generateThumbnail}
+              onLoadedMetadata={updatePlaybackMetadata}
             />
-            {thumbnailUrl && <img className="thumb" src={thumbnailUrl} alt="Miniatura del video" />}
 
             <div className="button-row">
               <button className="ghost" onClick={requestCamera}>

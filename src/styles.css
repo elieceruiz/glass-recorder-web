@@ -231,10 +231,10 @@ button:disabled {
   font-size: 1.05rem;
 }
 
-.thumb {
-  width: min(240px, 100%);
-  border-radius: 16px;
-  border: 1px solid #dbe7ee;
+.metrics small {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .button-row {
