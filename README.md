@@ -1,6 +1,6 @@
 # Glass Recorder Web
 
-Frontend Vercel para grabar video desde celular/navegador, subirlo directo a Cloudinary con unsigned upload preset y redirigir a Glass Reflection en Streamlit.
+Frontend Vercel para grabar video desde celular/navegador, subirlo directo a Cloudinary con unsigned upload preset, pedir analisis a `glass-api` en Render y redirigir a Glass Reflection en Streamlit.
 
 Este repo no analiza video, no usa OpenAI, no usa MongoDB y no guarda videos en Vercel.
 
@@ -9,7 +9,9 @@ Este repo no analiza video, no usa OpenAI, no usa MongoDB y no guarda videos en 
 ```text
 VITE_CLOUDINARY_CLOUD_NAME=...
 VITE_CLOUDINARY_UPLOAD_PRESET=...
+VITE_GLASS_API_URL=https://tu-glass-api.onrender.com
 VITE_STREAMLIT_URL=https://glass-reflection.streamlit.app
+VITE_DETAIL_SECONDS=10
 ```
 
 No pongas `CLOUDINARY_API_SECRET` en el frontend. La subida usa un unsigned upload preset.
@@ -37,10 +39,17 @@ npm run build
 6. Bloquear subida si supera 100 MB.
 7. Advertir si supera 50 MB.
 8. Subir directo a Cloudinary.
-9. Redirigir a Streamlit:
+9. Llamar a `glass-api` en Render:
 
 ```text
-https://glass-reflection.streamlit.app/?source=vercel&session_id=...&public_id=...&video_url=...
+POST https://tu-glass-api.onrender.com/analyze
+```
+
+10. Mientras Render analiza, mostrar “Generando reflejo...”.
+11. Redirigir a Streamlit:
+
+```text
+https://glass-reflection.streamlit.app/?session_id=...
 ```
 
 ## Calidad
@@ -51,4 +60,4 @@ https://glass-reflection.streamlit.app/?source=vercel&session_id=...&public_id=.
 
 ## Rol En Glass
 
-Vercel solo graba y sube video. Streamlit analiza y muestra el reflejo.
+Vercel solo graba y sube video. Render analiza. Streamlit solo muestra el reflejo desde MongoDB.

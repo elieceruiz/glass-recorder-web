@@ -6,6 +6,8 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "";
 const STREAMLIT_URL =
   import.meta.env.VITE_STREAMLIT_URL || "https://glass-reflection.streamlit.app";
+const GLASS_API_URL = import.meta.env.VITE_GLASS_API_URL || "";
+const DETAIL_SECONDS = Number(import.meta.env.VITE_DETAIL_SECONDS || "10");
 
 const QUALITY_OPTIONS = {
   light: {
@@ -105,6 +107,28 @@ async function uploadToCloudinary(blob, sessionId) {
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error?.message || "Cloudinary rechazo la subida.");
+  }
+  return payload;
+}
+
+async function requestGlassAnalysis({ sessionId, publicId, videoUrl }) {
+  if (!GLASS_API_URL) {
+    throw new Error("Falta VITE_GLASS_API_URL.");
+  }
+
+  const response = await fetch(`${GLASS_API_URL.replace(/\/$/, "")}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      public_id: publicId,
+      video_url: videoUrl,
+      detail_seconds: DETAIL_SECONDS,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.detail || payload.error || "Glass API no pudo generar el reflejo.");
   }
   return payload;
 }
@@ -242,11 +266,14 @@ function App() {
       const result = await uploadToCloudinary(blob, sessionId);
       setUploadResult(result);
       setStatus("uploaded");
+      setStatus("analyzing");
+      await requestGlassAnalysis({
+        sessionId,
+        publicId: result.public_id || "",
+        videoUrl: result.secure_url || "",
+      });
       const params = new URLSearchParams({
-        source: "vercel",
         session_id: sessionId,
-        public_id: result.public_id || "",
-        video_url: result.secure_url || "",
       });
       setStatus("redirecting");
       window.location.href = `${STREAMLIT_URL}/?${params.toString()}`;
@@ -369,6 +396,7 @@ function App() {
 
         {status === "uploading" && <p className="notice">Subiendo a Cloudinary...</p>}
         {status === "uploaded" && uploadResult && <p className="notice">Subido: {uploadResult.public_id}</p>}
+        {status === "analyzing" && <p className="notice">Generando reflejo...</p>}
         {status === "redirecting" && <p className="notice">Redirigiendo a Glass Reflection...</p>}
         {error && <p className="error">{error}</p>}
       </section>
