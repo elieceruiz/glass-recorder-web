@@ -7,7 +7,7 @@ const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "";
 const STREAMLIT_URL =
   import.meta.env.VITE_STREAMLIT_URL || "https://glass-reflection.streamlit.app";
 const GLASS_API_URL = import.meta.env.VITE_GLASS_API_URL || "";
-const DETAIL_SECONDS = Number(import.meta.env.VITE_DETAIL_SECONDS || "10");
+const DEFAULT_DETAIL_SECONDS = Number(import.meta.env.VITE_DETAIL_SECONDS || "10");
 
 const QUALITY_OPTIONS = {
   light: {
@@ -38,6 +38,33 @@ const QUALITY_OPTIONS = {
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const WARN_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+const DETAIL_OPTIONS = {
+  10: {
+    label: "Muy detallado",
+    helper: "mas capturas, mas precision, puede tardar mas.",
+  },
+  20: {
+    label: "Detallado",
+    helper: "buen nivel para sesiones cortas.",
+  },
+  30: {
+    label: "Balanceado",
+    helper: "suficiente para rutinas generales.",
+  },
+  60: {
+    label: "Rapido",
+    helper: "menos capturas, analisis mas liviano.",
+  },
+  120: {
+    label: "Panoramico",
+    helper: "vista general de sesiones largas.",
+  },
+};
+
+function initialDetailSeconds() {
+  return DETAIL_OPTIONS[DEFAULT_DETAIL_SECONDS] ? DEFAULT_DETAIL_SECONDS : 10;
+}
 
 function pickMimeType() {
   const candidates = [
@@ -111,10 +138,17 @@ async function uploadToCloudinary(blob, sessionId) {
   return payload;
 }
 
-async function requestGlassAnalysis({ sessionId, publicId, videoUrl }) {
+async function requestGlassAnalysis({ sessionId, publicId, videoUrl, detailSeconds }) {
   if (!GLASS_API_URL) {
     throw new Error("Falta VITE_GLASS_API_URL.");
   }
+
+  console.info("Glass API analyze payload", {
+    session_id: sessionId,
+    public_id: publicId,
+    video_url: videoUrl,
+    detail_seconds: detailSeconds,
+  });
 
   const response = await fetch(`${GLASS_API_URL.replace(/\/$/, "")}/analyze`, {
     method: "POST",
@@ -123,7 +157,7 @@ async function requestGlassAnalysis({ sessionId, publicId, videoUrl }) {
       session_id: sessionId,
       public_id: publicId,
       video_url: videoUrl,
-      detail_seconds: DETAIL_SECONDS,
+      detail_seconds: detailSeconds,
     }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -150,6 +184,7 @@ function App() {
   const [videoUrl, setVideoUrl] = useState("");
   const [duration, setDuration] = useState(0);
   const [videoResolution, setVideoResolution] = useState("");
+  const [detailSeconds, setDetailSeconds] = useState(initialDetailSeconds);
   const [uploadResult, setUploadResult] = useState(null);
   const [error, setError] = useState("");
 
@@ -157,6 +192,8 @@ function App() {
   const size = blob?.size || 0;
   const uploadBlocked = size > MAX_UPLOAD_BYTES;
   const uploadWarn = size > WARN_UPLOAD_BYTES;
+  const selectedDetail = DETAIL_OPTIONS[detailSeconds] || DETAIL_OPTIONS[10];
+  const estimatedMoments = Math.max(1, Math.ceil((duration || 0) / detailSeconds));
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -262,6 +299,7 @@ function App() {
         sessionId,
         publicId: result.public_id || "",
         videoUrl: result.secure_url || "",
+        detailSeconds,
       });
       const params = new URLSearchParams({
         session_id: sessionId,
@@ -373,6 +411,29 @@ function App() {
               className="playback"
               onLoadedMetadata={updatePlaybackMetadata}
             />
+
+            <div className="detail-card">
+              <label>
+                Detalle del analisis
+                <select
+                  value={detailSeconds}
+                  onChange={(event) => setDetailSeconds(Number(event.target.value))}
+                >
+                  {Object.entries(DETAIL_OPTIONS).map(([seconds, option]) => (
+                    <option key={seconds} value={seconds}>
+                      {seconds}s - {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p>{selectedDetail.helper}</p>
+              <div className="detail-summary">
+                <span>
+                  Detalle: {detailSeconds}s · {selectedDetail.label}
+                </span>
+                <span>Momentos estimados: {estimatedMoments}</span>
+              </div>
+            </div>
 
             <div className="button-row">
               <button className="ghost" onClick={requestCamera}>
