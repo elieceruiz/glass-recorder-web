@@ -1,26 +1,34 @@
-name: ONEH isolated production webhook relay
+name: ONEH immediate production deployment relay
 
 on:
   deployment_status:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   relay:
     if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
     runs-on: ubuntu-latest
     steps:
-      - name: Forward production deployment status to isolated Cloudflare receiver
+      - name: Send verified GitHub deployment event to ONEH
         env:
           EVENT_JSON: ${{ toJson(github.event) }}
+          OIDC_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          OIDC_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
-          response_code=$(curl --silent --show-error --output /tmp/receiver-response.txt --write-out "%{http_code}" \
+          oidc_token=$(curl --fail --silent --show-error \
+            --header "Authorization: bearer $OIDC_REQUEST_TOKEN" \
+            "$OIDC_REQUEST_URL&audience=oneh-webhook" | jq -r '.value')
+          test -n "$oidc_token"
+          test "$oidc_token" != "null"
+          response_code=$(curl --silent --show-error --output /tmp/oneh-response.txt --write-out "%{http_code}" \
             --request POST \
             --header "Content-Type: application/json" \
-            --header "X-Relay-Source: github-deployment-status" \
+            --header "Authorization: Bearer $oidc_token" \
             --data-binary "$EVENT_JSON" \
-            "https://oneh-webhook-lab.eliecer-ruiz.workers.dev/hook/iuSmhXD1zhYXoeHvOpdBtAs2Ev0HZZKbVzDC")
-          echo "Cloudflare receiver HTTP status: $response_code"
-          cat /tmp/receiver-response.txt
+            "https://oneh-webhook-live.eliecer-ruiz.workers.dev/hook")
+          echo "ONEH webhook HTTP status: $response_code"
+          cat /tmp/oneh-response.txt
           test "$response_code" -ge 200 && test "$response_code" -lt 300
