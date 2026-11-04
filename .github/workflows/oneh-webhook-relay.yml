@@ -1,0 +1,25 @@
+name: ONEH isolated webhook relay
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    if: github.event.deployment.ref == 'oneh-webhook-test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Forward deployment status to isolated Cloudflare receiver
+        env:
+          EVENT_JSON: ${{ toJson(github.event) }}
+        run: |
+          response_code=$(curl --silent --show-error --output /tmp/receiver-response.txt --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Relay-Source: github-deployment-status" \
+            --data-binary "$EVENT_JSON" \
+            "https://oneh-webhook-lab.eliecer-ruiz.workers.dev/hook/iuSmhXD1zhYXoeHvOpdBtAs2Ev0HZZKbVzDC")
+          echo "Cloudflare receiver HTTP status: $response_code"
+          test "$response_code" -ge 200 && test "$response_code" -lt 300
