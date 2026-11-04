@@ -15,12 +15,10 @@ jobs:
       - name: Send verified GitHub deployment event to ONEH
         env:
           EVENT_JSON: ${{ toJson(github.event) }}
-          OIDC_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          OIDC_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           oidc_token=$(curl --fail --silent --show-error \
-            --header "Authorization: bearer $OIDC_REQUEST_TOKEN" \
-            "$OIDC_REQUEST_URL&audience=oneh-webhook" | jq -r '.value')
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=oneh-webhook" | jq -r '.value')
           test -n "$oidc_token"
           test "$oidc_token" != "null"
           response_code=$(curl --silent --show-error --output /tmp/oneh-response.txt --write-out "%{http_code}" \
